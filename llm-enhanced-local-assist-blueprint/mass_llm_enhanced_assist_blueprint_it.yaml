@@ -520,12 +520,7 @@ actions:
     response_variable: result
   - alias: Store relevant part of LLM result in variable and define target
     variables:
-      llm_result: >-
-        {%- try -%}
-          {{ result.response.speech.plain.speech | from_json }}
-        {%- except JSONDecodeError -%}
-          {{ {} }}
-        {%- endtry -%}
+      llm_result: "{{ result.response.speech.plain.speech | from_json(default={}) }}"
       play_continuously: !input play_continuously
       llm_action_data:
         media_id: "{{ llm_result.action_data.media_id }}"
