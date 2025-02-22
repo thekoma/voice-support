@@ -1,0 +1,138 @@
+blueprint:
+  domain: automation
+  name: Music Assistant - Supporto Vocale Locale Blueprint
+  source_url: https://github.com/music-assistant/voice-support/blob/main/local-assist-blueprint/mass_assist_blueprint_it.yaml
+  description: "
+    ![Image](https://github.com/music-assistant/voice-support/blob/main/assets/music-assistant.png?raw=true)
+
+    # Riproduzione multimediale tramite comandi vocali
+
+    ### Configurazione del Blueprint
+
+    #### Richiesto 
+
+    * Imposta un `Lettore Predefinito` da utilizzare quando non viene menzionato un target nella richiesta e
+    la richiesta non proviene da un'area con un lettore Music Assistant.
+    
+    #### Opzionale
+
+    * Modifica la frase di attivazione o aggiungine altre, puoi anche usare questo per tradurre 
+    la frase nella tua lingua.
+
+    * Modifica le risposte o traducile nella tua lingua.
+
+
+    ### Utilizzo
+
+    Tutte le frasi devono:
+
+    * iniziare con le parole `Riproduci` o `Ascolta` seguite dal tipo di elemento `artista`/`traccia`/`album`/`playlist`/`radio` e poi il nome dell'elemento
+
+    * per album e traccia essere opzionalmente seguite da `di [l'] artista` e poi il nome dell'artista
+
+    * poi essere opzionalmente seguite da un nome di area o dispositivo
+
+    * poi, per artista, traccia, album o playlist, essere opzionalmente seguite dalla frase `usando la modalità radio`
+
+    #### Variazioni accettate
+
+    l'uso dell'articolo `il/lo/la/l'` è opzionale
+
+    |Tipo di media|Variazioni accettate|
+    |---|---|
+    |`artista`|`band`, `gruppo`|
+    |`traccia`|`canzone`, `brano`|
+    |`radio`|`stazione radio`, `radio`|
+    |`playlist`|`lista`, `playlist`|
+
+
+    #### Esempi
+
+    ```
+    Riproduci l'artista Pink Floyd in cucina
+    Ascolta l'album Jagged Little Pill nello studio
+    Ascolta l'album Greatest Hits dell'artista James Taylor in cucina
+    Riproduci la traccia New Years Day in camera da letto
+    Riproduci la traccia New Years Day in camera da letto usando la modalità radio
+    Riproduci la canzone A Hard Days Night di Billy Joel in camera da letto
+    Ascolta la playlist Classic Rock nello studio
+    Ascolta la stazione radio BBC Radio 1 in camera da letto
+    Riproduci l'album Classical Nights sull'altoparlante Sonos della camera
+    Ascolta il disco Classical Nights sull'altoparlante Sonos della camera
+    Riproduci la band U2
+    ```"
+  input:
+    default_player_entity_id_input:
+      name: Lettore Multimediale Predefinito
+      selector:
+        entity:
+          filter:
+            integration: music_assistant
+            domain: media_player
+    trigger_response_settings:
+      name: Impostazioni di attivazione e risposta per Assist
+      icon: mdi:chat
+      description:
+        "Puoi modificare i trigger esistenti o aggiungerne altri in queste impostazioni.
+        Metti il testo tra parentesi quadre [ ] per renderlo opzionale. Con parentesi tonde
+        ( ) e un carattere pipe | puoi inserire più valori che vengono trattati come
+        'o'. { query } è un valore jolly che conterrà il media richiesto e
+        opzionalmente l'area o il lettore Music Assistant.
+
+        Puoi anche impostare le risposte che Assist darà. Usa i template jinja che
+        verranno sostituiti con le informazioni sui media e il nome del lettore Music Assistant."
+      collapsed: true
+      input:
+        trigger_sentences:
+          name: Frasi di attivazione della conversazione
+          description: Le frasi che attiveranno questa automazione
+          selector:
+            text:
+              multiline: true
+          default: "(riproduci|ascolta) {query}"
+        combine_text:
+          name: Parola di combinazione
+          description: La parola usata per combinare più aree o lettori nella risposta
+          selector:
+            text:
+          default: "e"
+        response_input:
+          name: Risposta
+          description: La risposta che verrà data da Assist
+          selector:
+            text:
+          default: "{{ trigger.slots.media_name }} verrà riprodotto su {{ mass_player_name }}"
+  mode: single
+  actions:
+    - variables:
+        version: 20250128
+        default_player_entity_id: !input default_player_entity_id_input
+        trigger_id: "{{ trigger.id }}"
+        area_or_player_name: "{{ trigger.slots.area_or_player_name | default }}"
+        assist_device_id: "{{ trigger.device_id }}"
+        action_data:
+          media_id: "{{ trigger.slots.media_name }}"
+          media_type: "{{ 'radio' if 'radio' in media_name | lower else trigger_id }}"
+          artist: "{{ trigger.slots.artist | default }}"
+          radio_mode: "{{ 'radio' in trigger.slots.radio_mode | default | lower }}"
+        player_entity_id_by_player_name: >
+          {{ integration_entities('music_assistant') | expand 
+            | selectattr('name', 'match', area_or_player_name ~ '$', ignorecase=true)
+            | map(attribute='entity_id') | list }}
+        player_entity_id_by_area_name: >
+          {{ areas() | map('area_name') | select('match', area_or_player_name ~ '$', 
+          ignorecase=true) | map('area_entities') | sum(start=[]) | select('in', 
+          integration_entities('music_assistant')) | list }}
+        player_entity_id_by_assist_area: >
+          {{ area_entities(area_id(trigger.device_id))
+          | select('in', integration_entities('music_assistant')) | list }}
+        mass_player_entity_id: |
+          {{ player_entity_id_by_player_name or player_entity_id_by_area_name 
+          or player_entity_id_by_assist_area or [default_player_entity_id] }}
+        mass_player_name: "{{ mass_player_entity_id | map('state_attr', 'friendly_name') | join(', ') }}"
+    - alias: Invia media al lettore Music Assistant selezionato
+      action: music_assistant.play_media
+      data: "{{ dict(action_data.items() | selectattr('1')) }}"
+      target:
+        entity_id: "{{ mass_player_entity_id }}"
+    - set_conversation_response: !input response_input 

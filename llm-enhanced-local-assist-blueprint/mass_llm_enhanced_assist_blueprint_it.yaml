@@ -1,0 +1,354 @@
+blueprint:
+  domain: automation
+  name: Music Assistant - Supporto Vocale Avanzato con LLM Blueprint
+  source_url: https://github.com/music-assistant/voice-support/blob/main/llm-enhanced-local-assist-blueprint/mass_llm_enhanced_assist_blueprint_it.yaml
+  description: "
+    ![Image](https://github.com/music-assistant/voice-support/blob/main/assets/music-assistant.png?raw=true)
+
+    # Riproduzione multimediale tramite comandi vocali con assistenza LLM
+
+    ### Configurazione del Blueprint
+
+    #### Obbligatorio
+
+    * Seleziona un agente di conversazione LLM da utilizzare con l'automazione. Il blueprint
+    è pensato per essere utilizzato con un agente LLM che non ha il controllo della casa.
+
+    #### Opzionale
+
+    * Imposta un `Lettore Predefinito` da utilizzare quando non viene menzionato un target nella richiesta
+    e la richiesta non proviene da un'area con un lettore Music Assistant.
+
+    * Modifica l'impostazione per la `Modalità Radio`. Per impostazione predefinita, viene utilizzata
+    l'impostazione `Non fermare la musica` del lettore Music Assistant.
+
+    * Modifica la frase di attivazione o aggiungine altre, puoi anche usare questo per tradurre
+    la frase nella tua lingua.
+
+    * Modifica le risposte o traducile nella tua lingua.
+
+    * Modifica l'impostazione per condividere i nomi delle aree e dei lettori con l'LLM. L'impostazione
+    predefinita è di condividerli. Se modifichi le impostazioni nel blueprint e non condividi i nomi
+    delle aree e dei lettori con l'LLM, il nome deve corrispondere esattamente al nome dell'area o
+    del lettore in Home Assistant. Quindi se il nome dell'area è _Camera Sophia_ non funzionerà se
+    dici _Camera di Sophia_ o se la conversione Speech to Text usa _Sofia_ invece di _Sophia_.
+    Purtroppo gli alias non possono essere utilizzati nell'automazione, poiché non esiste un template
+    per ottenere gli alias di aree o entità. Le maiuscole/minuscole non sono rilevanti, quindi
+    _camera sophia_ corrisponderà comunque se il nome dell'area in Home Assistant è _Camera Sophia_
+
+    * Modifica il prompt utilizzato per far fornire i dati corretti all'LLM. Non è necessario
+    tradurlo se usi una lingua diversa.
+
+    ### Utilizzo
+
+    Tutte le frasi devono:
+
+    * iniziare con le parole `Riproduci` o `Ascolta` seguite da una descrizione di ciò che vuoi
+    riprodurre
+
+    * poi essere opzionalmente seguite da uno o più nomi di aree e/o uno o più nomi di dispositivi
+    su cui riprodurre la musica.
+
+    ### Come viene determinato il target per il contenuto:
+
+    1. Se nel comando vengono menzionate una o più aree e/o uno o più lettori Music Assistant,
+    vengono utilizzati questi. Se non condividi i nomi e l'area o il lettore menzionato non
+    corrisponde esattamente al nome in Home Assistant, Assist userà la risposta `No target response`.
+
+    2. Se nel comando non viene menzionato alcun target, l'automazione controllerà prima
+    se la richiesta proviene da un dispositivo in un'area. Se in quell'area c'è anche un lettore
+    Music Assistant, la musica verrà riprodotta lì.
+
+    3. Se nel comando non viene menzionato alcun target e l'area del satellite vocale non può
+    essere utilizzata, verrà utilizzato il `Lettore Predefinito` impostato nel blueprint.
+    Se non è impostato alcun `Lettore Predefinito`, verrà restituita la risposta `No target response`.
+
+    #### Esempi
+
+    ```
+    Riproduci le migliori canzoni dei Pink Floyd in cucina
+    Ascolta Jagged Little Pill nello studio
+    Ascolta l'album Greatest Hits di James Taylor in cucina
+    Riproduci la traccia New Years Day in camera da letto
+    Riproduci A Hard Days Night di Billy Joel in camera da letto
+    Ascolta la playlist Classic Rock nello studio
+    Ascolta BBC Radio 1 in camera da letto
+    Riproduci l'album Classical Nights sull'altoparlante Sonos della camera
+    Ascolta il disco Classical Nights sull'altoparlante Sonos della camera
+    Riproduci canzoni degli U2
+    Riproduci musica del compositore di Oppenheimer
+    Riproduci quell'album con il bambino nudo che nuota verso una banconota sulla copertina
+    ```"
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    llm_agent:
+      name: Agente di conversazione LLM
+      description: L'agente LLM che vuoi utilizzare per elaborare la query
+      selector:
+        entity:
+          filter:
+            - domain:
+                - conversation
+          multiple: false
+    music_assistant_settings:
+      name: Impostazioni per la riproduzione di Music Assistant
+      icon: mdi:music
+      description:
+        Puoi utilizzare queste impostazioni per regolare come viene gestita
+        la riproduzione di Music Assistant
+      input:
+        default_player:
+          name: Lettore Predefinito
+          description:
+            "Il lettore Music Assistant predefinito che verrà utilizzato nel caso
+            in cui non sia chiaro dalla richiesta in quale area o su quale lettore
+            la richiesta debba essere riprodotta
+
+            Lascia vuoto se non vuoi un lettore predefinito"
+          selector:
+            entity:
+              filter:
+                - integration: music_assistant
+                  domain:
+                    - media_player
+              multiple: false
+          default:
+        play_continuously:
+          name: Modalità Radio
+          description:
+            'Determina se l''impostazione "radio_mode" deve essere impostata per
+            l''azione di riproduzione multimediale.
+
+            Quando è impostato su "Usa impostazioni lettore" utilizzerà l''impostazione
+            "Non fermare la musica" del lettore Music Assistant
+
+            Quando è impostato su "Sempre" il lettore aggiungerà continuamente nuove
+            canzoni alla playlist.
+
+            Quando è impostato su "Mai" il lettore smetterà di riprodurre dopo che
+            le canzoni selezionate dall''LLM saranno finite.'
+          selector:
+            select:
+              options:
+                - Usa impostazioni lettore
+                - Sempre
+                - Mai
+              multiple: false
+              custom_value: false
+              sort: false
+          default: Usa impostazioni lettore
+    response_settings:
+      name: Impostazioni di trigger e risposta per Assist
+      icon: mdi:chat
+      description:
+        "Puoi utilizzare questa impostazione per definire le risposte che Assist darà.
+        <media_info> verrà sostituito con una descrizione del contenuto richiesto. Puoi
+        usare <area_info> e <player_info> che verranno sostituiti con i nomi delle aree
+        o dei lettori.
+
+        Questa sezione permette anche di utilizzare lo script in una lingua diversa,
+        traducendo questi campi nella tua lingua."
+      collapsed: true
+      input:
+        trigger:
+          name: Frasi di attivazione della conversazione
+          description:
+            Puoi aggiungere più trigger o modificarli qui. Metti il testo tra
+            parentesi quadre [ ] per renderlo opzionale. Con parentesi tonde ( ) e un
+            carattere pipe | puoi inserire più valori che vengono trattati come 'o'.
+            { query } è un valore jolly che conterrà il contenuto richiesto e
+            opzionalmente l'area o il lettore Music Assistant.
+          selector:
+            text:
+              multiline: false
+              multiple: true
+          default:
+            - (riproduci|ascolta) {query}
+        combine_text:
+          name: Parola di combinazione
+          description:
+            Questa parola verrà utilizzata nella risposta nel caso in cui vengano
+            selezionate più aree o lettori. Quindi se richiedi che il contenuto venga
+            riprodotto in salotto e in cucina, la risposta menzionerà 'salotto <e>
+            cucina'. <e> verrà sostituito con il valore di questo parametro.
+          selector:
+            text:
+              multiline: false
+              multiple: false
+          default: e
+        no_target_response:
+          name: Risposta nessun target
+          description:
+            Assist restituirà questa risposta se non è stato possibile determinare
+            un target e non è impostato alcun lettore predefinito
+          selector:
+            text:
+              multiline: false
+              multiple: false
+          default: Non è stato possibile determinare dove riprodurre il contenuto e non è stato impostato alcun lettore predefinito
+        area_response:
+          name: Risposta area
+          description: Assist restituirà questa risposta se sono selezionate solo aree
+          selector:
+            text:
+              multiline: false
+              multiple: false
+          default: Ora riproduco <media_info> in <area_info>
+        player_response:
+          name: Risposta lettore
+          description:
+            Assist restituirà questa risposta se sono selezionati solo lettori
+            Music Assistant
+          selector:
+            text:
+              multiline: false
+              multiple: false
+          default: Ora riproduco <media_info> su <player_info>
+        area_and_player_response:
+          name: Risposta area e lettore
+          description:
+            Assist restituirà questa risposta se sono selezionate sia aree che
+            lettori
+          selector:
+            text:
+              multiline: false
+              multiple: false
+          default: Ora riproduco <media_info> in <area_info> e su <player_info>
+    prompt_settings:
+      name: Impostazioni prompt per l'LLM
+      icon: mdi:robot
+      description:
+        Puoi utilizzare questa impostazione per ottimizzare i prompt per il tuo
+        specifico LLM (modello). Nella maggior parte dei casi l'impostazione predefinita
+        dovrebbe andare bene.
+      collapsed: true
+      input:
+        expose_players:
+          name: Esponi Lettori Music Assistant
+          description:
+            Disabilita per non esporre i nomi dei lettori Music Assistant
+            all'LLM. Se disabilitato, qualsiasi nome di area utilizzato nella richiesta
+            deve corrispondere esattamente al nome dell'area in Home Assistant
+          selector:
+            boolean: {}
+          default: true
+        expose_areas:
+          name: Esponi aree con Lettori Music Assistant
+          description:
+            Disabilita per non esporre i nomi delle aree in cui è presente
+            un lettore Music Assistant all'LLM. Se disabilitato, qualsiasi nome di lettore
+            utilizzato nella richiesta deve corrispondere esattamente al nome del lettore
+            in Home Assistant
+          selector:
+            boolean: {}
+          default: true
+  triggers:
+    - alias: Trigger per richiesta musicale
+      trigger: conversation
+      command: !input trigger
+  actions:
+    - alias: Memorizza input dal blueprint in variabili così possono essere usate nel prompt
+      variables:
+        version: 20250210
+        expose_areas: !input expose_areas
+        expose_players: !input expose_players
+        prompt:
+          intro: !input llm_prompt_intro
+          media_type: !input llm_prompt_media_type
+          media_id: !input llm_prompt_media_id
+          artist_album: !input llm_prompt_artist_album
+          examples: !input llm_prompt_examples
+          description: !input llm_prompt_media_description
+          target: !input llm_prompt_target
+          outro: !input llm_prompt_outro
+        area_names:
+          "{{ integration_entities('music_assistant') | map('area_name')
+          | join(', ') }}"
+        player_names:
+          "{{ integration_entities('music_assistant') | map('state_attr',
+          'friendly_name') | join(', ') }}"
+    - alias: Invia la richiesta all'LLM
+      action: conversation.process
+      data:
+        text: "{{ prompt.values() | join('\n\n') }}"
+        agent_id: !input llm_agent
+      response_variable: result
+    - alias: Memorizza la parte rilevante del risultato LLM in variabile e definisci il target
+      variables:
+        llm_result: "{{ result.response.speech.plain.speech | from_json }}"
+        play_continuously: !input play_continuously
+        llm_action_data:
+          media_id: "{{ llm_result.action_data.media_id }}"
+          media_type: "{{ llm_result.action_data.media_type }}"
+          artist: "{{ llm_result.action_data.artist | default('NA', true) }}"
+          album: "{{ llm_result.action_data.album | default('NA', true) }}"
+          radio_mode:
+            "{{ false if play_continuously == 'Mai' else play_continuously
+            == 'Sempre' and llm_result.action_data.media_type != 'radio' or 'NA' }}"
+        llm_target_data:
+          entity_id:
+            "{% set players = llm_result.get('target_data', {}).get('players', []) %}
+            {% set players = players | join('|') if players is list else players %}
+            {{ integration_entities('music_assistant') | expand | selectattr('name',
+            'in', player_names.split(', ') | select('search', players, ignorecase=true) 
+            | list) | map(attribute='entity_id') | list if players else [] }}"
+          area_id:
+            "{% set areas = llm_result.get('target_data', {}).get('areas', []) %}
+            {% set areas = areas | join('|') if areas is list else areas %}
+            {{ area_names.split(', ') | select('search', areas, ignorecase=true) 
+            | map('area_id') | list if areas else [] }}"
+        llm_target:
+          "{{ iif(llm_result.get('target_data', {}).get('players') or 
+          llm_result.get('target_data', {}).get('areas')) }}"
+        device_area:
+          "{{ area_id(trigger.device_id) if area_name(trigger.device_id) in
+          area_names.split(', ') }}"
+        default_player: !input default_player
+        backup_target:
+          "{{ (dict(area_id=[device_area]) if device_area) or (dict(entity_id=[default_player])
+          if default_player) }}"
+        target_data:
+          "{{ (llm_target_data if llm_target else backup_target) | default({},
+          true) }}"
+        target: "{{ dict(target_data.items() | selectattr('1')) }}"
+    - alias: Prova a riprodurre la musica solo quando è stato determinato un target
+      if:
+        - alias: Controlla se è stato possibile determinare un target
+          condition: template
+          value_template: "{{ iif(target) }}"
+      then:
+        - alias: Riproduci Musica basata sul risultato LLM
+          action: music_assistant.play_media
+          data: "{{ dict(llm_action_data.items() | rejectattr('1', 'eq', 'NA')) }}"
+          target: "{{ target }}"
+    - alias: Imposta variabili per le risposte
+      variables:
+        combine: !input combine_text
+        responses:
+          no_target: !input no_target_response
+          only_area: !input area_response
+          only_player: !input player_response
+          area_player: !input area_and_player_response
+        response: "{% if iif(target.get('area_id') and target.get('entity_id')) %}
+          area_player {% elif iif(target.get('area_id')) %} only_area {% elif iif(target.get('entity_id'))
+          %} only_player {% else %} no_target {% endif %}"
+        area_list:
+          "{{ target.get('area_id', []) | map('area_name') | list }}"
+        area_info:
+          "{{ area_list[:-1] | join(', ') ~ ' ' ~ combine ~ ' ' ~ area_list[-1]
+          if area_list | count > 2 else area_list | join(' ' ~ combine ~ ' ') }}"
+        player_list:
+          "{{ target.get('entity_id') | map('state_attr', 'friendly_name')
+          | list }}"
+        player_info:
+          "{{ player_list[:-1] | join(', ') ~ ' ' ~ combine ~ ' ' ~ player_list[-1]
+          if player_list | count > 2 else player_list | join(' ' ~ combine ~ ' ')
+          }}"
+        media_info: "{{ llm_result.media_description | default(llm_action_data.media_id, true) }}"
+    - alias: Imposta risposta per Assist
+      set_conversation_response:
+        "{{ responses[response] | replace('<media_info>', media_info)
+        | replace('<area_info>', area_info) | replace('<player_info>', player_info)
+        }}"
+  mode: parallel 
