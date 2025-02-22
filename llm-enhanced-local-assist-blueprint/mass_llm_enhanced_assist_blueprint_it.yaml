@@ -506,12 +506,12 @@ actions:
         description: !input llm_prompt_media_description
         target: !input llm_prompt_target
         outro: !input llm_prompt_outro
-      area_names:
-        "{{ integration_entities('music_assistant')  | map('area_name')
-        | join(', ') }}"
-      player_names:
-        "{{ integration_entities('music_assistant') | map('state_attr',
-        'friendly_name') | join(', ') }}"
+      area_names: >-
+        {% set players = integration_entities('music_assistant') | select('match', 'media_player.*') | list %}
+        {{ players | map('area_name') | reject('none') | join(', ') }}
+      player_names: >-
+        {% set players = integration_entities('music_assistant') | select('match', 'media_player.*') | list %}
+        {{ players | map('state_attr', 'friendly_name') | reject('none') | join(', ') }}
   - alias: Send the request to the LLM
     action: conversation.process
     data:
@@ -520,7 +520,12 @@ actions:
     response_variable: result
   - alias: Store relevant part of LLM result in variable and define target
     variables:
-      llm_result: "{{ result.response.speech.plain.speech | from_json }}"
+      llm_result: >-
+        {%- try -%}
+          {{ result.response.speech.plain.speech | from_json }}
+        {%- except JSONDecodeError -%}
+          {{ {} }}
+        {%- endtry -%}
       play_continuously: !input play_continuously
       llm_action_data:
         media_id: "{{ llm_result.action_data.media_id }}"
