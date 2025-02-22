@@ -135,17 +135,17 @@ blueprint:
         play_continuously:
           name: Modalità radio
           description:
-            'Determina se l\'impostazione "radio_mode" deve essere impostata per il
+            'Determina se l''impostazione "radio_mode" deve essere impostata per il
             azione di riproduzione multimediale.
 
-            Se impostato su "Usa impostazioni lettore", utilizzerà l'impostazione "Non interrompere la musica"
+            Se impostato su "Usa impostazioni lettore", utilizzerà l''impostazione "Non interrompere la musica"
             sul lettore Music Assistant
 
             Se impostato su "Sempre", il lettore aggiungerà continuamente nuove canzoni al
             playlist.
 
             Se impostato su "Mai", il lettore smetterà di riprodurre dopo le canzoni selezionate
-            dall\'LLM sono finite.'
+            dall''LLM sono finite.'
           selector:
             select:
               options:
